@@ -6,6 +6,12 @@ var port = (process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || 6969);
 var io = require('socket.io')(server);
 server.listen(port, () => console.log('Server running in port ' + port));
 
+app.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
+
 var userOnline = []; //danh sách user dang online
 io.on('connection', function(socket) {
     console.log(socket.id + ': connected');
@@ -44,4 +50,26 @@ io.on('connection', function(socket) {
 
 app.get('/', (req, res) => {
     res.send("Home page. Server running okay.");
+})
+
+var heroes = [
+  { id: 11, name: 'Mr. Nice' },
+  { id: 12, name: 'Narco' },
+  { id: 13, name: 'Bombasto' },
+  { id: 14, name: 'Celeritas' },
+  { id: 15, name: 'Magneta' },
+  { id: 16, name: 'RubberMan' },
+  { id: 17, name: 'Dynama' },
+  { id: 18, name: 'Dr IQ' },
+  { id: 19, name: 'Magma' },
+  { id: 20, name: 'Tornado' },
+];
+
+app.get('/heroes', (req, res) => {
+    res.send(heroes);
+})
+
+app.post('/heroes', (req, res) => {
+    console.log(req);
+    res.send(heroes);
 })
