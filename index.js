@@ -1,52 +1,32 @@
 var express = require('express');
+var mysql = require('mysql');
+var connection = mysql.createConnection({
+  host     : 'localhost',
+  user     : 'root',
+  password : '',
+  database : 'node'
+});
+connection.connect()
 var app = express();
+var bodyParser = require('body-parser');
+app.use(bodyParser.json()); // support json encoded bodies
+app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 var _findIndex = require('lodash/findIndex') // npm install lodash --save
 var server = require('http').Server(app);
 var port = (process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || 6969);
 var io = require('socket.io')(server);
 server.listen(port, () => console.log('Server running in port ' + port));
 
+
+
+
 app.use(function(req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
     next();
 });
 
-var userOnline = []; //danh sách user dang online
-io.on('connection', function(socket) {
-    console.log(socket.id + ': connected');
-    //lắng nghe khi người dùng thoát
-    socket.on('disconnect', function() {
-        console.log(socket.id + ': disconnected')
-        $index = _findIndex(userOnline, ['id', socket.id]);
-        userOnline.splice($index, 1);
-        io.sockets.emit('updateUesrList', userOnline);
-    })
-    //lắng nghe khi có người gửi tin nhắn
-    socket.on('newMessage', data => {
-        //gửi lại tin nhắn cho tất cả các user dang online
-        io.sockets.emit('newMessage', {
-            data: data.data,
-            user: data.user
-        });
-    })
-    //lắng nghe khi có người login
-    socket.on('login', data => {
-        // kiểm tra xem tên đã tồn tại hay chưa
-        if (userOnline.indexOf(data) >= 0) {
-            socket.emit('loginFail'); //nếu tồn tại rồi thì gửi socket fail
-        } else {
-            // nếu chưa tồn tại thì gửi socket login thành công
-            socket.emit('loginSuccess', data);
-            userOnline.push({
-                id: socket.id,
-                name: data
-            })
-            io.sockets.emit('updateUesrList', userOnline);// gửi danh sách user dang online
-        }
-    })
-
-});
 
 app.get('/', (req, res) => {
     res.send("Home page. Server running okay.");
@@ -66,10 +46,52 @@ var heroes = [
 ];
 
 app.get('/heroes', (req, res) => {
+  console.log('vao');
+  connection.query('SELECT * from users ', function (err, rows, fields) {
+  if (err) throw err
+    let heroes = JSON.stringify(rows);
     res.send(heroes);
+  });
+})
+
+app.get('/hero/:id', (req, res) => {
+  let id = req.params.id;
+  console.log(id);
+  connection.query(`SELECT * from users where id = ${id} limit 1`, function (err, rows, fields) {
+  if (err) throw err
+    let heroes = JSON.stringify(rows[0]);
+    console.log(heroes)
+    res.send(heroes);
+  });
+
 })
 
 app.post('/heroes', (req, res) => {
-    console.log(req);
-    res.send(heroes);
+    console.log(req.body);
+    let hero =  req.body.name;
+    connection.query(`insert into users(name) values('${hero}') `, function (err, rows, fields) {
+      if (err) throw err
+      console.log(rows.insertId)
+      connection.query(`SELECT * from users where id = ${rows.insertId} limit 1`, function (err, rows, fields) {
+        if (err) throw err
+        let heroes = JSON.stringify(rows[0]);
+        console.log(heroes)
+        res.send(heroes);
+      });
+    });
+})
+
+app.put('/heroes', (req, res) => {
+    console.log(req.body);
+
+    connection.query(`update users set name = '${req.body.name}'  where id = ${req.body.id}`, function (err, rows, fields) {
+      if (err) throw err
+      console.log(rows.affectedRows);
+      connection.query(`SELECT * from users where id = ${req.body.id} limit 1`, function (err, rows, fields) {
+        if (err) throw err
+        let hero = JSON.stringify(rows[0]);
+        console.log(hero)
+        res.send(hero);
+      });
+    });
 })
